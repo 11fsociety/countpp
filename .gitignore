@@ -37,3 +37,6 @@ Thumbs.db
 # Claude Code auto-log
 context.md
 .wrap-pending
+
+.vercel
+.env*

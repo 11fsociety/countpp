@@ -35,28 +35,77 @@ export const galleryEntrySchema = z.object({
 });
 export type GalleryEntry = z.infer<typeof galleryEntrySchema>;
 
-export const metadataSchema = z.object({
-  version: z.literal(1),
-  lastWriter: z.string().email().nullable().default(null),
-  lastWriteAt: z.string().nullable().default(null),
-  count: z.object({
-    value: z.number().int().default(0),
-    lastChangeBy: z.string().email().nullable().default(null),
-    lastChangeAt: z.string().nullable().default(null),
-  }),
-  chat: z.array(chatMessageSchema).default([]),
-  gallery: z.array(galleryEntrySchema).default([]),
+const countSideSchema = z.object({
+  value: z.number().int().default(0),
+  lastChangeBy: z.string().email().nullable().default(null),
+  lastChangeAt: z.string().nullable().default(null),
 });
+
+/**
+ * The count is TWO independent values, one per user. But nobody
+ * mutates their OWN count — every button on a user's screen changes
+ * the OTHER user's count. See src/app/(app)/count/page.tsx.
+ */
+export const countSchema = z.object({
+  asmit: countSideSchema.default({ value: 0, lastChangeBy: null, lastChangeAt: null }),
+  vidhi: countSideSchema.default({ value: 0, lastChangeBy: null, lastChangeAt: null }),
+});
+export type CountSide = z.infer<typeof countSideSchema>;
+export type Count = z.infer<typeof countSchema>;
+
+/**
+ * Migrate legacy single-count metadata to the new two-sided shape.
+ * Legacy shape: count: { value, lastChangeBy, lastChangeAt }.
+ * On upgrade the single value is preserved as `asmit.value`, and
+ * `vidhi.value` starts at 0. This runs on read in readMetadata().
+ */
+function normalizeCount(raw: unknown): Count {
+  if (raw && typeof raw === "object" && "asmit" in raw && "vidhi" in raw) {
+    return countSchema.parse(raw);
+  }
+  const legacy = countSideSchema.safeParse(raw ?? {});
+  return {
+    asmit: legacy.success ? legacy.data : { value: 0, lastChangeBy: null, lastChangeAt: null },
+    vidhi: { value: 0, lastChangeBy: null, lastChangeAt: null },
+  };
+}
+
+export const metadataSchema = z
+  .object({
+    version: z.literal(1),
+    lastWriter: z.string().email().nullable().default(null),
+    lastWriteAt: z.string().nullable().default(null),
+    count: z.unknown().transform((v) => normalizeCount(v)),
+    chat: z.array(chatMessageSchema).default([]),
+    gallery: z.array(galleryEntrySchema).default([]),
+  })
+  .transform((o) => o); // ensure the transform on `count` runs
 export type Metadata = z.infer<typeof metadataSchema>;
 
 export const EMPTY_METADATA: Metadata = {
   version: 1,
   lastWriter: null,
   lastWriteAt: null,
-  count: { value: 0, lastChangeBy: null, lastChangeAt: null },
+  count: {
+    asmit: { value: 0, lastChangeBy: null, lastChangeAt: null },
+    vidhi: { value: 0, lastChangeBy: null, lastChangeAt: null },
+  },
   chat: [],
   gallery: [],
 };
+
+/**
+ * Given the logged-in user's email, return the KEY of the count they
+ * mutate when they tap buttons on their screen. Every action a user
+ * takes affects the OTHER person's count.
+ */
+export function targetSideFor(email: string): "asmit" | "vidhi" {
+  const e = email.toLowerCase();
+  if (e === "asmitdash44@gmail.com") return "vidhi";
+  if (e === "bhanushalividhi2@gmail.com") return "asmit";
+  // Fallback — shouldn't happen given the whitelist.
+  return "vidhi";
+}
 
 export const CHAT_PURGE_DAYS = 7;
 export const CHAT_PHOTO_GALLERY_DAYS = 7;
