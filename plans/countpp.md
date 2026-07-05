@@ -102,6 +102,15 @@ Drive is out. Photos + snap-photos live in Vercel Blob. Reason: zero setup, no G
 - **Expiry behavior:** the blob **is NOT deleted**. Only the gallery UI hides it. The photo remains at its Vercel Blob URL and still shows in the Vercel dashboard. Asmit was warned about this "kind of gone, kind of not" state and explicitly accepted it.
 - Implementation: gallery view filters `gallery` entries by `capturedAt >= now - windowFor(entry.type)`. No cleanup job, no deletes.
 
+### Gallery UI (locked 2026-07-05)
+
+- **Layout:** single mixed feed. 3-column grid on phone, 4–5 on wider screens. Chat-photos and snap-photos interleaved, sorted newest first.
+- **Sender indicator:** small "A" or "V" initial in the corner of each thumbnail. Enough to identify the sender at a glance without needing tabs.
+- **Full-screen viewer on tap:** black surround, pinch-to-zoom, double-tap zoom, swipe-left/right for next/prev, swipe-down to close. Overlay on tap shows sender name + relative time + expiry hint.
+- **Expiry countdown:** each photo shows a subtle `expires in 4h` / `expires in 3d` overlay on the thumbnail, **but only when it's within the last 25% of its lifetime** (so most photos have no clutter — the badge only appears as urgency approaches).
+- **Keep-forever:** long-press on any thumbnail toggles a `keptBy` flag for the current user on that gallery entry. Kept photos are excluded from the expiry filter. If either user keeps a photo, it stays in the gallery indefinitely. Kept photos get a small solid-color dot in the corner (color = who kept it, or two dots if both did).
+- **Empty state:** if the current window has zero photos, show a soft "No photos yet" message. If all photos have expired but blobs exist, small hint about long-pressing to keep future photos.
+
 ## 8. Tech stack
 
 - **Framework:** Next.js 16 App Router with Turbopack.
