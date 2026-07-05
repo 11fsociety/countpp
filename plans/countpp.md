@@ -110,7 +110,15 @@ Fields:
 - **Drive:** the `googleapis` npm client, called from Next.js Route Handlers (**this means we DO have a backend, contradiction with scoping** — see § 9).
 - **Deployment:** Vercel Free tier.
 
-## 9. Open questions before implementation
+## 9. Decisions locked in (2026-07-04)
+
+- **Drive access (Q1):** option (a) — Vercel serverless backend with a Google service account. Env var `GOOGLE_SERVICE_ACCOUNT_KEY` holds the credential JSON. All Drive I/O goes through `/api/drive-*` route handlers. Neither user OAuths against Google.
+- **Purge window (Q2):** 7 days (default from plan).
+- **Snap viewing (Q3):** snap paints for **15 seconds** on the recipient's open screen, then auto-marks `viewedAt`. No tap-and-hold gesture.
+- **Photo compression (Q4):** none — originals uploaded as-is. Accept larger storage footprint.
+- **Push notifications (Q5):** zero, ever. No badge, no push, no service-worker notifications.
+
+## 9b. Open questions before implementation (kept for reference)
 
 **Q1. Drive OAuth vs backend contradiction.** During scoping we agreed "no backend, everything client-side." But the Drive API cannot be called anonymously from the browser, even against an "anyone with the link" folder. Three ways to resolve:
 
