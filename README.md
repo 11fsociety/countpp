@@ -15,17 +15,17 @@ Three features, one shared surface between exactly two accounts:
 ## How it works
 
 - **Frontend:** Next.js 16 PWA (installable on Android / iOS home screen), deployed to Vercel.
-- **Auth:** magic-link email. Only two whitelisted addresses can sign in.
-- **Datastore:** a single Google Drive folder shared with editor-link access.
-  - Photos + snap-photos live in that folder as blobs.
-  - Chat messages, count value, message-kept flags, view state — all live in a single `metadata.txt` inside the same folder.
-  - **No backend, no database, no realtime infra.** The client polls the Drive folder every 3–5 seconds to detect changes.
+- **Auth:** magic-link, no email. The `/login` page generates a signed URL and prints it on screen — the sender copies it and sends to the recipient via WhatsApp. Only two whitelisted addresses can log in via that link.
+- **Storage:** Vercel Blob.
+  - Photos + snap-photos live in one Vercel Blob store.
+  - `metadata.txt` (chat messages, count value, message-kept flags, view state, per-photo gallery lifetime) lives in the same Blob store.
+  - The client polls Vercel Blob every 3–5 seconds to detect changes.
 
 ## Trade-offs we're deliberately choosing
 
-- **Real-time is ~3–5 sec polling delay**, not sub-second. Deliberate. See design doc.
-- **The Drive folder link is a shared secret.** Anyone with the link has full access. Acceptable for a two-person tool where the link never leaves those two devices.
-- **`metadata.txt` has a race-condition risk** on simultaneous writes. Mitigation is client-side (last-write-wins with a re-read-after-write reconciliation). See design doc.
+- **Real-time is ~3–5 sec polling delay**, not sub-second. Deliberate.
+- **Chat photos hide from gallery after 7 days; snap photos hide after 24 hours** — but the blobs themselves are not deleted. Expired photos still exist in the Vercel Blob dashboard and at their public URLs. This is "hidden, not gone" — accepted trade-off.
+- **`metadata.txt` has a race-condition risk** on simultaneous writes. Mitigation is client-side (last-write-wins with a re-read-after-write reconciliation).
 
 ## Full design
 

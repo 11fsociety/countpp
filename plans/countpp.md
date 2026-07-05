@@ -84,39 +84,45 @@ Fields:
 
 **Note:** the magic-link server has to send email. Options: Vercel's edge email via Resend / Postmark / SendGrid (Resend has a generous free tier). Server-side only; the client never sees SMTP keys.
 
-## 7. Drive integration
+## 7. Storage — Vercel Blob (locked 2026-07-05)
 
-- **Setup (one-time, by Asmit):**
-  - Create a Drive folder named "countpp-data".
-  - Right-click → Share → "Anyone with the link" → Editor.
-  - Copy the folder ID from the URL (`https://drive.google.com/drive/folders/<ID>`).
-  - Put the ID in Vercel env var `DRIVE_FOLDER_ID`.
-- **Client-side Drive API access:**
-  - Uses an unauthenticated Drive REST endpoint that works with "anyone with the link" folders? **NO** — the Drive REST API always requires OAuth even for public-link folders. There is no anonymous-access path for programmatic writes.
-  - Workaround: an **API key** with Drive API enabled, restricted to the specific folder ID + specific referrers. But **API keys can only read**, not write.
-  - Realistic option: the client does OAuth with the **user's own** Google account, and the user's Google account uploads to the shared folder. Both users go through OAuth on first use.
-  - This contradicts the "no OAuth" preference stated during scoping. Flagging: we may have to soften either "no OAuth" or "no backend."
+Drive is out. Photos + snap-photos live in Vercel Blob. Reason: zero setup, no Google Cloud console, matches Asmit's low-tinker preference.
 
-  **Decision needed** — see § 9 open questions.
+- **Bucket:** one Vercel Blob store created from Vercel dashboard → Storage → Blob → "Create Store".
+- **Access mode:** public URLs. Every blob has a permanent URL like `https://<random>.public.blob.vercel-storage.com/<key>.jpg`. URL is unguessable but not authenticated — treating this the same risk profile as the (rejected) Drive editor link.
+- **Env vars:** `BLOB_READ_WRITE_TOKEN` auto-provisioned by Vercel when the store is linked to the project.
+- **Uploads:** client → `POST /api/upload` route handler → `put()` from `@vercel/blob` → returns `{url, pathname}`. Route handler verifies session cookie + whitelist before letting the write through.
+- **Reads:** the URL is embedded in `metadata.txt` (Blob URL, not Drive file ID). Client fetches the URL directly. No auth needed for reads (public blob).
+- **"Access photos outside the app":** Vercel dashboard → Storage → Blob store → file list. Raw filenames, no thumbnails, no swipe viewer. Asmit acknowledged this UX trade-off and accepted it.
+
+### Expiry / gallery lifetime (locked 2026-07-05)
+
+- **Chat photos** (`type: "photo"`): visible in chat forever (unless purged via message-keep rules). In gallery: **7 days** from `capturedAt`.
+- **Snap photos** (`type: "snap"`): visible in chat until viewed, then hidden. In gallery: **24 hours** from `capturedAt`.
+- **Expiry behavior:** the blob **is NOT deleted**. Only the gallery UI hides it. The photo remains at its Vercel Blob URL and still shows in the Vercel dashboard. Asmit was warned about this "kind of gone, kind of not" state and explicitly accepted it.
+- Implementation: gallery view filters `gallery` entries by `capturedAt >= now - windowFor(entry.type)`. No cleanup job, no deletes.
 
 ## 8. Tech stack
 
 - **Framework:** Next.js 16 App Router with Turbopack.
-- **Styling:** Tailwind CSS.
+- **Styling:** Tailwind CSS 4.
 - **PWA:** `@ducanh2912/next-pwa` for the service worker + manifest.
-- **UI kit:** minimal — Tailwind only. Framer Motion for the button-tap animation.
-- **Email:** Resend for magic-link delivery.
+- **UI kit:** minimal — Tailwind only.
+- **Auth:** no email. `/login` page generates a signed magic-link URL and prints it on-screen. Asmit copies + sends to Vidhi via WhatsApp. She pastes in her phone browser. Session cookie set on click. Whitelist = env `ALLOWED_EMAILS=asmitdash44@gmail.com,bhanushalividhi2@gmail.com`.
 - **Session:** `iron-session` for cookie-based sessions (no third-party auth service).
-- **Drive:** the `googleapis` npm client, called from Next.js Route Handlers (**this means we DO have a backend, contradiction with scoping** — see § 9).
+- **Storage:** `@vercel/blob` — photos + `metadata.txt` both live in Vercel Blob. Route handlers guard writes with session check + whitelist.
 - **Deployment:** Vercel Free tier.
 
-## 9. Decisions locked in (2026-07-04)
+## 9. Decisions locked in (2026-07-04 / 05)
 
-- **Drive access (Q1):** option (a) — Vercel serverless backend with a Google service account. Env var `GOOGLE_SERVICE_ACCOUNT_KEY` holds the credential JSON. All Drive I/O goes through `/api/drive-*` route handlers. Neither user OAuths against Google.
-- **Purge window (Q2):** 7 days (default from plan).
-- **Snap viewing (Q3):** snap paints for **15 seconds** on the recipient's open screen, then auto-marks `viewedAt`. No tap-and-hold gesture.
-- **Photo compression (Q4):** none — originals uploaded as-is. Accept larger storage footprint.
-- **Push notifications (Q5):** zero, ever. No badge, no push, no service-worker notifications.
+- **Storage:** Vercel Blob. Drive dropped after weighing OAuth setup cost against UX gain. See § 7.
+- **Auth email:** none. Magic-link URL is generated + shown on-screen; Asmit sends to Vidhi via WhatsApp. See § 6.
+- **Whitelist:** `asmitdash44@gmail.com` (Asmit), `bhanushalividhi2@gmail.com` (Vidhi). Hard-coded via env.
+- **Chat-message purge (Q2):** 7 days for un-kept text messages.
+- **Snap viewing (Q3):** snap paints for **15 seconds** on the recipient's open screen, then auto-marks `viewedAt`.
+- **Photo compression (Q4):** none — originals uploaded as-is.
+- **Push notifications (Q5):** zero, ever.
+- **Gallery expiry (added 2026-07-05):** chat-photos hide from gallery after **7 days**; snap-photos hide after **24 hours**. Blobs are NOT deleted; only gallery UI hides them. Trade-off accepted.
 
 ## 9b. Open questions before implementation (kept for reference)
 
