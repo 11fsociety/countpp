@@ -1,0 +1,39 @@
+# Environment / secrets
+.env
+.env.local
+.env.production
+.env*.local
+
+# Node
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# Next.js runtime cache
+.next
+.vercel
+
+# TypeScript incremental
+*.tsbuildinfo
+next-env.d.ts
+
+# Debug / logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Claude Code auto-log
+context.md
+.wrap-pending
