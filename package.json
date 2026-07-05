@@ -9,7 +9,6 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@ducanh2912/next-pwa": "^10.2.9",
     "@vercel/blob": "^0.27.3",
     "iron-session": "^8.0.4",
     "next": "16.2.10",
